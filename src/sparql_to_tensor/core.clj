@@ -95,7 +95,7 @@
   Returns the file."
   [relations]
   (let [tmpfile (doto (File/createTempFile "relations" ".csv.gz") (.deleteOnExit))
-        vectorize (juxt :s :o :feature :weight)]
+        vectorize (juxt :s :o (comp iri->local-name :feature) :weight)]
     (with-open [writer (-> tmpfile io/output-stream GZIPOutputStream. io/writer)]
       (csv/write-csv writer (map vectorize relations)))
     tmpfile))
@@ -106,14 +106,15 @@
   [tmpfile]
   (letfn [(relation->index
             [{:keys [entity-index features]}
-             [s o feature-iri _]]
-            (let [feature (iri->local-name feature-iri)]
-              {:entity-index (conj entity-index s o)
-               :features (conj features feature)}))]
+             [s o feature _]]
+            (-> entity-index
+                (conj! s)
+                (conj! o))
+            {:entity-index entity-index
+             :features (conj features feature)})]
     (with-open [reader (-> tmpfile io/input-stream GZIPInputStream. io/reader)]
-      (-> relation->index
-          (reduce {:entity-index #{} :features #{}} (csv/read-csv reader))
-          (update :entity-index vec)))))
+      (-> (reduce relation->index {:entity-index (transient #{}) :features #{}} (csv/read-csv reader))
+          (update :entity-index (comp vec persistent!))))))
 
 (defn write-index
   "Write `index` into the `output-dir`."
@@ -136,10 +137,9 @@
   [matrices entity-index tmpfile]
   (letfn [(entity->index [entity] (.indexOf entity-index entity))]
     (with-open [reader (-> tmpfile io/input-stream GZIPInputStream. io/reader)]
-      (doseq [[s o feature-iri weight] (csv/read-csv reader)
+      (doseq [[s o feature weight] (take 1000 (csv/read-csv reader))
               :let [s-index (entity->index s)
                     o-index (entity->index o)
-                    feature (iri->local-name feature-iri)
                     matrix (get matrices feature)
                     weight' (or (->double weight) 1.0)]]
         (.set matrix s-index o-index weight')))))
