@@ -13,7 +13,7 @@ WHERE {
     SELECT ?s
     WHERE {
       {
-        SELECT ?s
+        SELECT DISTINCT ?s
         WHERE {
           GRAPH <http://linked.opendata.cz/resource/dataset/isvz.cz> {
             [] pc:awardedTender/pc:bidder ?s .
