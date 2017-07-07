@@ -7,7 +7,7 @@
 PREFIX pc:  <http://purl.org/procurement/public-contracts#>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
-SELECT ?s ?o (pc:bidder AS ?feature) ?weight
+SELECT (pc:bidder AS ?feature) ?s ?o ?weight
 FROM <http://linked.opendata.cz/resource/dataset/isvz.cz>
 WHERE {
   {

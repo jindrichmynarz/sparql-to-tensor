@@ -5,7 +5,7 @@
 
 PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 
-SELECT ?s ?o (skos:broaderTransitive AS ?feature)
+SELECT (skos:broaderTransitive AS ?feature) ?s ?o
 FROM <http://linked.opendata.cz/resource/concept-scheme/nace>
 WHERE {
   {
