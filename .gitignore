@@ -59,3 +59,5 @@ Session.vim
 tags
 
 # End of https://www.gitignore.io/api/osx,vim,clojure,leiningen
+
+src/sparql_to_tensor/scratchpad.clj
