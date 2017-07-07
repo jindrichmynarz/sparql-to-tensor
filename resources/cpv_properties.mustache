@@ -13,7 +13,7 @@ WHERE {
     SELECT ?contract
     WHERE {
       {
-        SELECT ?contract
+        SELECT DISTINCT ?contract
         WHERE {
           ?contract a pc:Contract ;
             pc:lot/pc:awardedTender/pc:bidder [] ;
