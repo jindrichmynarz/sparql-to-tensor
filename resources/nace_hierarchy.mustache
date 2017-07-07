@@ -1,0 +1,20 @@
+{{!
+@param limit   int
+@param offset  int
+}}
+
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+SELECT ?s ?o (skos:broaderTransitive AS ?feature)
+FROM <http://linked.opendata.cz/resource/concept-scheme/nace>
+WHERE {
+  {
+    SELECT ?s ?o
+    WHERE {
+      ?s skos:broader ?o .
+    }
+    ORDER BY ?s
+  }
+}
+LIMIT {{limit}}
+OFFSET {{offset}}

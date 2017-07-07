@@ -1,0 +1,34 @@
+{{!
+@param default float
+@param limit   int
+@param offset  int
+}}
+
+PREFIX pc:  <http://purl.org/procurement/public-contracts#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT ?s ?o (pc:bidder AS ?feature) ?weight
+FROM <http://linked.opendata.cz/resource/dataset/isvz.cz>
+WHERE {
+  {
+    SELECT ?s ?o
+    WHERE {
+      {
+        SELECT ?s ?o
+        WHERE {
+          ?s pc:awardedTender/pc:bidder ?o .
+        }
+        ORDER BY ?s
+      }
+    }
+    LIMIT {{limit}}
+    OFFSET {{offset}}
+  }
+  OPTIONAL {
+    ?s pc:awardDate ?awardDate .
+  }
+  BIND (if(bound(?awardDate),
+           bif:exp(-0.005 * bif:datediff("day", ?awardDate, now()) / 7.0),
+           {{default}})
+        AS ?weight)
+}

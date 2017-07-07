@@ -1,0 +1,9 @@
+PREFIX pc:  <http://purl.org/procurement/public-contracts#>
+
+SELECT (AVG(?weight) AS ?avgWeight)
+WHERE {
+  GRAPH <http://linked.opendata.cz/resource/dataset/isvz.cz> {
+    [] pc:awardDate ?awardDate .
+    BIND (bif:exp(-0.005 * bif:datediff("day", ?awardDate, now()) / 7.0) AS ?weight)
+  }
+}

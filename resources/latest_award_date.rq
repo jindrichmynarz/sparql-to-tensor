@@ -1,0 +1,8 @@
+PREFIX pc:  <http://purl.org/procurement/public-contracts#>
+
+SELECT (MAX(?awardDate) AS ?latestAwardDate)
+WHERE {
+  GRAPH <http://linked.opendata.cz/resource/dataset/isvz.cz> {
+    [] pc:awardDate ?awardDate .
+  }
+}
