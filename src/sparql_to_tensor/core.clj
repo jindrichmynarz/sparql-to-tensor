@@ -101,7 +101,6 @@
     (with-open [writer (-> tmpfile io/output-stream GZIPOutputStream. io/writer)]
       (->> relations
            (map vectorize)
-           (sort-by first)
            (csv/write-csv writer)))
     tmpfile))
 
@@ -120,22 +119,6 @@
     (with-open [reader (-> tmpfile io/input-stream GZIPInputStream. io/reader)]
       (-> (reduce relation->index {:entity-index (transient #{}) :features #{}} (csv/read-csv reader))
           (update :entity-index (comp #(ArrayList. %) persistent!))))))
-
-;(defn build-entity-index
-;  "Build index of entities from relations in GZipped CSV `tmpfile`.
-;  Returns a map with :entity-index and :features."
-;  [tmpfile]
-;  (let [append! (fn [^ArrayList array ^String item]
-;                  (when (= (.indexOf array item) -1) (.add array item)))
-;        entity-index (ArrayList.)
-;        features (ArrayList.)]
-;    (with-open [reader (-> tmpfile io/input-stream GZIPInputStream. io/reader)]
-;      (doseq [[s o feature _] (csv/read-csv reader)]
-;        (append! entity-index s)
-;        (append! entity-index o)
-;        (append! features feature)))
-;    {:entity-index entity-index
-;     :features features}))
 
 (defn write-index
   "Write `index` into the `output-dir`."
@@ -165,29 +148,25 @@
                     weight' (or (->double weight) 1.0)]]
         (.set matrix s-index o-index weight')))))
 
-(defn- populate-matrix!
-  [entity->index matrices relations]
-  (let [matrix (get matrices (ffirst relations))]
-    (doseq [[_ s o weight] relations
-            :let [s-index (entity->index s)
-                  o-index (entity->index o)
-                  weight' (or (->double weight) 1.0)]]
-      (.set matrix s-index o-index weight'))))
-
 (defn populate-matrices!'
   "Populate `matrices` with relations read from in a GZipped CSV `tmpfile`,
   where entities are translated to indices via `entity-index`."
   ; FIXME: `tmpfile` can be deleted after this point.
   [matrices entity-index tmpfile]
-  (letfn [(entity->index [entity] (.indexOf entity-index entity))]
+  (letfn [(entity->index [entity] (.indexOf entity-index entity))
+          (add-relation! [[feature s o weight]]
+            (let [s-index (entity->index s)
+                  o-index (entity->index o)
+                  matrix (get matrices feature)
+                  weight' (or (->double weight) 1.0)]
+              (.set matrix s-index o-index weight')))]
     (with-open [reader (-> tmpfile io/input-stream GZIPInputStream. io/reader)]
-      (let [futures (doall (->> reader
-                                csv/read-csv
-                                (take 10000)
-                                (partition-by first)
-                                (map #(future (populate-matrix! entity->index matrices %)))))]
-        (dorun (map deref futures))))))
- 
+      (->> reader
+           csv/read-csv
+           (take 10000)
+           (pmap add-relation!)
+           dorun))))
+
 (defn serialize-matrices
   "Serialize `matrices` in the MatrixMarker format to `output-dir`."
   [output-dir matrices]
