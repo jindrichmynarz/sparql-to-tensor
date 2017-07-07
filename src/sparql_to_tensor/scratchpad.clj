@@ -4,7 +4,8 @@
             [sparql-to-tensor.core :as core]
             [clojure.java.io :as io]
             [mount.core :as mount]
-            [sparclj.core :as sparql]))
+            [sparclj.core :as sparql])
+  (:import (java.io File)))
 
 (comment
   (def output
@@ -16,10 +17,21 @@
     (map (comp slurp io/resource) ["contract_properties.mustache" "bidder_properties.mustache"]))
 
   (def params {::sparql/url "http://lod2-dev.vse.cz:8890/sparql"
-               ::sparql/page-size 100
+               ::sparql/page-size 1000
+               ::sparql/parallel? true
                ::spec/queries queries
                ::spec/output output})
 
   (mount/start-with-args params)
-  (take 5 (core/sparql->tensor' queries output))
+  (mount/stop)
+
+  (stencil.loader/set-cache (clojure.core.cache/ttl-cache-factory {} :ttl 0))
+  (time (def relations (doall (core/fetch-relations queries))))
+  (time (def tmpfile (core/write-relations relations)))
+  (time (def data (core/build-entity-index tmpfile)))
+  (core/write-index output (:index data))
+  (def matrices (core/init-matrices (count (:index data)) (:features data)))
+  (core/populate-matrices! matrices (:index data) tmpfile)
+  (core/serialize-matrices output matrices)
+  (time (core/sparql->tensor-multipass output queries))
   )
