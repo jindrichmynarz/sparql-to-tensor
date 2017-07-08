@@ -2,6 +2,7 @@
   (:gen-class)
   (:require [sparql-to-tensor.spec :as spec]
             [sparql-to-tensor.util :as util]
+            [sparql-to-tensor.core :as core]
             [sparclj.core :as sparql]
             [sparclj.spec :as sparql-spec]
             [clojure.tools.cli :refer [parse-opts]]
@@ -34,12 +35,13 @@
 
 (defn- main
   [{::sparql/keys [url]
-    ::spec/keys [queries]
+    ::spec/keys [output queries]
     :as params}]
   (validate-params params)
   (try+ (mount/start-with-args params)
         (catch [:type ::sparql/endpoint-not-found] _
           (util/die (format "SPARQL endpoint <%s> was not found." url))))
+  (core/sparql->tensor output queries)
   (shutdown-agents))
 
 ; ----- Private vars -----

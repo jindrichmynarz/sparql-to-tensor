@@ -11,7 +11,8 @@
                  [com.taoensso/timbre "4.10.0"]
                  [stencil "0.5.0"]
                  [org.la4j/la4j "0.6.0"]
-                 [org.clojure/data.csv "0.1.4"]]
+                 [org.clojure/data.csv "0.1.4"]
+                 [org.clojure/data.avl "0.0.17"]]
   :main sparql-to-tensor.cli
   :profiles {:plugins [[lein-binplus "0.4.2"]]
              :uberjar {:aot :all
