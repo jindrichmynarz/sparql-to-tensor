@@ -26,36 +26,6 @@
   [^String iri]
   (string/replace iri #"^.+(?:#|/)(.+)$" "$1"))
 
-(defn sparql->tensor
-  "Retrieve results of `queries` and convert them into tensor slices output to `output` directory."
-  [queries output]
-  (let [entities (ArrayList.)
-        slices (atom {})
-        entity->index! (fn [iri]
-                        (let [index (.indexOf entities iri)]
-                          ; Matrices are 1-offset, hence inc.
-                          (inc (if (not= index -1)
-                            index 
-                            (.size (doto entities (.add iri)))))))
-        add-relation! (fn 
-                        ([s o feature weight]
-                         #_(if-let [slice (get @slices feature)]
-                           (add-relation! slice s o feature weight))))]
-    (doseq [query queries
-            :let [get-query-fn (fn [[limit offset]]
-                                 (stencil/render-string query {:limit limit :offset offset}))]]
-      (doseq [{:keys [s o feature weight]
-               :or {weight 1}} (sparql/select-paged endpoint get-query-fn)
-              :let [s-index (entity->index! s)
-                    o-index (entity->index! o)
-                    feature-local-name (iri->local-name feature)]]
-        ))))
-
-; Functional, potentially slow solution
-; TODO:
-; - Start with naive sequence processing
-; - Graduate to transducers
-
 (defn- ->query-fn
   "Make a function to render paged queries from `template`."
   [template]
@@ -69,22 +39,6 @@
   (lazy-seq
     (if (seq colls)
       (concat (first colls) (lazy-cat' (next colls))))))
-
-(defn sparql->tensor'
-  [queries output]
-  (let [fetch-fn (comp (partial sparql/select-paged endpoint) ->query-fn)
-        relations (lazy-cat' (map fetch-fn queries))
-        entity->index (fn [entities entity])]
-    (reduce (fn [{:keys [entities slices]
-                  :as data}
-                 {:keys [s o feature weight]
-                  :or {weight 1}}]
-              (let [feature-local-name (iri->local-name feature)]))
-            {:entities []
-             :slices {}}
-            relations)))
-
-; Multipass version
 
 (defn fetch-relations
   "Fetch relations from results of SPARQL `queries`."
@@ -142,30 +96,11 @@
   (letfn [(entity->index [entity] (.indexOf entity-index entity))]
     (with-open [reader (-> tmpfile io/input-stream GZIPInputStream. io/reader)]
       (doseq [[feature s o weight] (take 10000 (csv/read-csv reader))
-              :let [s-index (entity->index s)
-                    o-index (entity->index o)
-                    matrix (get matrices feature)
-                    weight' (or (->double weight) 1.0)]]
+              :let [^int s-index (entity->index s)
+                    ^int o-index (entity->index o)
+                    ^CCSMatrix matrix (get matrices feature)
+                    ^double weight' (or (->double weight) 1.0)]]
         (.set matrix s-index o-index weight')))))
-
-(defn populate-matrices!'
-  "Populate `matrices` with relations read from in a GZipped CSV `tmpfile`,
-  where entities are translated to indices via `entity-index`."
-  ; FIXME: `tmpfile` can be deleted after this point.
-  [matrices entity-index tmpfile]
-  (letfn [(entity->index [entity] (.indexOf entity-index entity))
-          (add-relation! [[feature s o weight]]
-            (let [s-index (entity->index s)
-                  o-index (entity->index o)
-                  matrix (get matrices feature)
-                  weight' (or (->double weight) 1.0)]
-              (.set matrix s-index o-index weight')))]
-    (with-open [reader (-> tmpfile io/input-stream GZIPInputStream. io/reader)]
-      (->> reader
-           csv/read-csv
-           (take 10000)
-           (pmap add-relation!)
-           dorun))))
 
 (defn serialize-matrices
   "Serialize `matrices` in the MatrixMarker format to `output-dir`."
