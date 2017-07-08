@@ -6,12 +6,13 @@
             [clojure.java.io :as io]
             [clojure.data.csv :as csv]
             [clojure.core.reducers :as r]
-            [clojure.set :refer [union]])
+            [clojure.set :refer [union]]
+            [clojure.data.avl :as avl])
   (:import (java.io File)
            (java.util ArrayList Locale)
            (java.text DecimalFormat)
            (java.util.zip GZIPInputStream GZIPOutputStream)
-           (org.la4j.matrix.sparse CCSMatrix)))
+           (org.la4j.matrix.sparse CRSMatrix)))
 
 (set! *warn-on-reflection* true)
 
@@ -26,12 +27,6 @@
   [^String iri]
   (string/replace iri #"^.+(?:#|/)(.+)$" "$1"))
 
-(defn- ->query-fn
-  "Make a function to render paged queries from `template`."
-  [template]
-  (fn [[limit offset]]
-    (stencil/render-string template {:limit limit :offset offset})))
-
 (defn- lazy-cat'
   "Lazily concatenates a sequences `colls`.
   Taken from <http://stackoverflow.com/a/26595111/385505>."
@@ -43,8 +38,9 @@
 (defn fetch-relations
   "Fetch relations from results of SPARQL `queries`."
   [queries]
-  (letfn [(fetch [query-fn] (sparql/select-paged endpoint query-fn ::sparql/parallel? true))]
-    (lazy-cat' (map (comp fetch ->query-fn) queries))))
+  (letfn [(render-query [[limit offset]] (stencil/render-string template {:limit limit :offset offset}))
+          (fetch [query-fn] (sparql/select-paged endpoint query-fn ::sparql/parallel? true))]
+    (lazy-cat' (map (comp fetch render-query) queries))))
 
 (defn write-relations
   "Write `relations` to a temporary GZipped CSV file.
@@ -71,8 +67,10 @@
             {:entity-index entity-index
              :features (conj features feature)})]
     (with-open [reader (-> tmpfile io/input-stream GZIPInputStream. io/reader)]
-      (-> (reduce relation->index {:entity-index (transient #{}) :features #{}} (csv/read-csv reader))
-          (update :entity-index (comp #(ArrayList. %) persistent!))))))
+      (-> (reduce relation->index
+                  {:entity-index (transient (avl/sorted-set)) :features #{}}
+                  (csv/read-csv reader))
+          (update :entity-index (comp persistent!))))))
 
 (defn write-index
   "Write `index` into the `output-dir`."
@@ -85,20 +83,40 @@
   Return a map of the matrices keyed by features."
   [^Integer entities-size
    features]
-  (letfn [(->matrix [] (CCSMatrix. entities-size entities-size))]
+  (letfn [(->matrix [] (CRSMatrix. entities-size entities-size))]
     (reduce (fn [matrices feature] (assoc matrices feature (->matrix))) {} features)))
+
+(defn relations->csv
+  [output-dir
+   ^ArrayList entity-index
+   tmpfile]
+  (let [entity->index (fn [^String entity] (avl/rank-of entity-index entity))
+        index-relation (fn [[_ s o weight]]
+                         [(entity->index s)
+                          (entity->index o)
+                          (or (->double weight) 1.0)])]
+    (with-open [reader (-> tmpfile io/input-stream GZIPInputStream. io/reader)]
+      (doseq [feature-relations (partition-by first (take 10000 (csv/read-csv reader)))
+              :let [feature (ffirst feature-relations)]]
+        (with-open [writer (io/writer (File. output-dir (str feature ".csv")))]
+          (csv/write-csv writer (map index-relation feature-relations)))))))
+
+(defn csv->matrix
+  [csv-file]
+  (CRSMatrix/fromCSV (slurp csv-file)))
 
 (defn populate-matrices!
   "Populate `matrices` with relations read from in a GZipped CSV `tmpfile`,
   where entities are translated to indices via `entity-index`."
   ; FIXME: `tmpfile` can be deleted after this point.
   [matrices entity-index tmpfile]
-  (letfn [(entity->index [entity] (.indexOf entity-index entity))]
+  (let [entity->index (fn [^String entity] (avl/rank-of entity-index entity))
+        entity->index' (memoize entity->index)]
     (with-open [reader (-> tmpfile io/input-stream GZIPInputStream. io/reader)]
       (doseq [[feature s o weight] (take 10000 (csv/read-csv reader))
-              :let [^int s-index (entity->index s)
-                    ^int o-index (entity->index o)
-                    ^CCSMatrix matrix (get matrices feature)
+              :let [^int s-index (entity->index' s)
+                    ^int o-index (entity->index' o)
+                    ^CRSMatrix matrix (get matrices feature)
                     ^double weight' (or (->double weight) 1.0)]]
         (.set matrix s-index o-index weight')))))
 
@@ -109,12 +127,12 @@
         serialize-matrix (fn [matrix]
                            (-> matrix
                                (.toMatrixMarket number-format)
-                               (string/replace " column-major" "")))]
+                               (string/replace " row-major" "")))]
     (doseq [[feature matrix] matrices
             :let [output-file (File. output-dir (str feature ".mtx"))]]
       (spit output-file (serialize-matrix matrix)))))
 
-(defn sparql->tensor-multipass
+(defn sparql->tensor
   [output-dir queries]
   (let [tmpfile (-> queries fetch-relations write-relations)
         {:keys [entity-index features]} (build-entity-index tmpfile)
