@@ -72,11 +72,11 @@
     (csv/write-csv writer (map vector index))))
 
 (defn init-matrices
-  "For each feature in `features` initialize a square matrix of size given by `entities-size`.
+  "For each feature in `features` initialize a square matrix of size given by `entity-count`.
   Return a map of the matrices keyed by features."
-  [^Integer entities-size
+  [^Integer entity-count
    features]
-  (letfn [(->matrix [] (CRSMatrix. entities-size entities-size))]
+  (letfn [(->matrix [] (CRSMatrix. entity-count entity-count))]
     (reduce (fn [matrices feature] (assoc matrices feature (->matrix))) {} features)))
 
 (defn populate-matrices!
