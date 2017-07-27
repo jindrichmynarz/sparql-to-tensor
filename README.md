@@ -30,7 +30,7 @@ The query templates must generate SPARQL `SELECT` queries that project these var
 * `?feature`: IRI of the feature (e.g., predicate), such as `<http://purl.org/dc/terms/subject>`.
 * `?s`: IRI of the relation's subject
 * `?o`: IRI of the relation's object
-* `?weight` (optional, default = 1): Positive decimal number used a weight of the relation.
+* `?weight` (optional, default = 1): Positive decimal number used as a weight of the relation.
 
 For each feature a square matrix is created representing the adjacencies between `?s` and `?o`.
 
