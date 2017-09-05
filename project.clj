@@ -1,4 +1,4 @@
-(defproject sparql-to-tensor "0.1.0-SNAPSHOT"
+(defproject sparql-to-tensor "0.1.0"
   :description "Export RDF from SPARQL endpoints to tensors"
   :url "https://github.com/jindrichmynarz/sparql-to-tensor"
   :license {:name "Eclipse Public License"

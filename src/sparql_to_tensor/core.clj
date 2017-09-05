@@ -1,5 +1,6 @@
 (ns sparql-to-tensor.core
   (:require [sparql-to-tensor.endpoint :refer [endpoint]]
+            [sparql-to-tensor.spec :as spec]
             [stencil.core :as stencil]
             [sparclj.core :as sparql]
             [clojure.string :as string]
@@ -82,7 +83,7 @@
 (defn populate-matrices!
   "Populate `matrices` with relations read from in a GZipped CSV `tmpfile`,
   where entities are translated to indices via `entity-index`."
-  [matrices entity-index tmpfile]
+  [{::spec/keys [symmetric?]} matrices entity-index tmpfile]
   (let [entity->index (fn [^String entity] (avl/rank-of entity-index entity))]
     (with-open [reader (-> tmpfile io/input-stream GZIPInputStream. io/reader)]
       (doseq [[feature s o weight] (csv/read-csv reader)
@@ -90,7 +91,9 @@
                     ^int o-index (entity->index o)
                     ^CRSMatrix matrix (get matrices feature)
                     ^double weight' (or (->double weight) 1.0)]]
-        (.set matrix s-index o-index weight')))
+        (.set matrix s-index o-index weight')
+        (when symmetric?
+          (.set matrix o-index s-index weight'))))
     ; The temporary file is no longer needed after this point.
     (.delete tmpfile)))
 
@@ -111,10 +114,10 @@
   The slices are written to `output-dir`.
   Each slice is written into a {feature local name}.mtx MatrixMarket file.
   Header containing the index of entity IRIs is written to header.txt file."
-  [output-dir queries]
+  [output-dir queries & {::spec/keys [params]}]
   (let [tmpfile (-> queries fetch-relations write-relations)
         {:keys [entity-index features]} (build-entity-index tmpfile)
         matrices (init-matrices (count entity-index) features)]
     (write-index output-dir entity-index)
-    (populate-matrices! matrices entity-index tmpfile)
+    (populate-matrices! params matrices entity-index tmpfile)
     (serialize-matrices output-dir matrices)))

@@ -41,7 +41,7 @@
   (try+ (mount/start-with-args params)
         (catch [:type ::sparql/endpoint-not-found] _
           (util/die (format "SPARQL endpoint <%s> was not found." url))))
-  (core/sparql->tensor output queries)
+  (core/sparql->tensor output queries ::spec/params params)
   (shutdown-agents))
 
 ; ----- Private vars -----
@@ -67,6 +67,8 @@
                 (let [dir (io/as-file dirname)]
                   (when-not (.exists dir) (.mkdir dir))
                   dir))]
+   [nil "--symmetric" "Make all relations symmetric"
+    :id ::spec/symmetric?]
    ["-h" "--help" "Display help information"
     :id ::spec/help?]])
 
