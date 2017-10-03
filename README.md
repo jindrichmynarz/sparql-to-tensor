@@ -24,6 +24,7 @@ The arguments include the following:
 * `-q`/`--query`: A paged SPARQL query template in the [Mustache](https://mustache.github.io/mustache.5.html) syntax. The query template should use `{{limit}}` and `{{offset}}` to implement paging. This parameter may be repeated to use multiple query templates.
 * `-o`/`--output`: Path to directory where the matrices and the header will be output. If the directory does not exist, it will be created.
 * `-p`/`--page-size` (default = 10000): Page size indicating the maximum number of results retrieved in one request to SPARQL endpoint.
+* `--symmetric`: A flag that for each relation between `A` and `B` creates the same relation between `B` and `A`. Turned off by default.
 
 The query templates must generate SPARQL `SELECT` queries that project these variables:
 
