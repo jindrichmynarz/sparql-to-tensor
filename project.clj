@@ -14,7 +14,7 @@
                  [org.clojure/data.csv "0.1.4"]
                  [org.clojure/data.avl "0.0.17"]]
   :main sparql-to-tensor.cli
-  :profiles {:plugins [[lein-binplus "0.4.2"]]
+  :profiles {:dev {:plugins [[lein-binplus "0.4.2"]]}
              :uberjar {:aot :all
                        :uberjar-name "sparql_to_tensor.jar"}}
   :bin {:name "sparql_to_tensor"})
