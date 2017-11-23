@@ -79,7 +79,7 @@
   (let [{{::spec/keys [help?]
           :as params} :options
          :keys [errors summary]} (parse-opts args cli-options)
-        empty-args? (seq (filter #{"-"} args))]
+        empty-args? (not (seq (remove #{"-"} args)))]
     (cond (or help? empty-args?) (util/info (usage summary))
           errors (util/die (error-msg errors))
           :else (main params))))
