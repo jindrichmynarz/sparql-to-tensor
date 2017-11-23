@@ -15,7 +15,7 @@ lein bin
 This produces an executable `target/sparql_to_tensor`. Observe its arguments:
 
 ```sh
-target/sparql_to_csv --help
+target/sparql_to_tensor --help
 ```
 
 The arguments include the following:
