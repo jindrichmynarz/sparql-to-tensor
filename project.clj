@@ -1,11 +1,11 @@
-(defproject sparql-to-tensor "0.1.0"
+(defproject sparql-to-tensor "0.1.1"
   :description "Export RDF from SPARQL endpoints to tensors"
   :url "https://github.com/jindrichmynarz/sparql-to-tensor"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.9.0-alpha17"]
                  [org.clojure/tools.cli "0.3.5"]
-                 [sparclj "0.1.8"]
+                 [sparclj "0.1.9"]
                  [mount "0.1.11"]
                  [slingshot "0.12.2"]
                  [com.taoensso/timbre "4.10.0"]
